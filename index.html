@@ -1,0 +1,294 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ember Battle Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;700;800&family=Kalam:wght@400;700&display=swap">
+<style>
+/* Layout: a game table. Lanes (villain across from hero, battle strip between) on the left,
+   the phase controls and log on the right, each player's tray along the bottom. */
+:root {
+  --table: #dfe5da;      /* sage play mat */
+  --panel: #f5f6f0;
+  --ink: #1c231e;
+  --muted: #5b665e;
+  --line: #c3cbbd;
+  --paper: #fbf8ef;      /* card stock */
+  --card-ink: #1e201b;
+  --card-muted: #6b6a5e;
+  --hero: #8c2f2f;       /* maroon borders, like the hand-made hero cards */
+  --villain: #26407a;    /* navy borders, like the hand-made villain cards */
+  --atk: #c2410c;        /* + attack */
+  --def: #2a62a3;        /* − defend */
+  --foc: #7d7225;        /* • focus */
+  --ember: #e0611f;
+  --good: #2f7a3d;
+  --bad: #b3261e;
+  --back: #3b4a40;
+  --font-ui: 'Alegreya Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-hand: 'Kalam', 'Comic Sans MS', 'Chalkboard SE', cursive;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --table: #151c18; --panel: #1d2520; --ink: #e6ebe3; --muted: #9ba79e; --line: #2f3a33;
+    --paper: #ebe5d5; --card-ink: #1e201b; --card-muted: #66645a;
+    --hero: #a8443f; --villain: #4a67ad; --atk: #e8692e; --def: #5b93d6; --foc: #b7a743;
+    --ember: #f07a36; --good: #5bb46b; --bad: #ef6a5f; --back: #4c5d51;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --table: #151c18; --panel: #1d2520; --ink: #e6ebe3; --muted: #9ba79e; --line: #2f3a33;
+  --paper: #ebe5d5; --card-ink: #1e201b; --card-muted: #66645a;
+  --hero: #a8443f; --villain: #4a67ad; --atk: #e8692e; --def: #5b93d6; --foc: #b7a743;
+  --ember: #f07a36; --good: #5bb46b; --bad: #ef6a5f; --back: #4c5d51;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--table); color: var(--ink); font: 16px/1.4 var(--font-ui); margin: 0; }
+button { font: inherit; color: inherit; }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px 24px; display: grid; gap: 14px; }
+
+/* top bar */
+#top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; }
+.brand { font: 700 1.6rem/1 var(--font-hand); display: flex; align-items: center; gap: 10px; }
+.ember { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #ffd27a, var(--ember) 55%, #8a2a0a); box-shadow: 0 0 10px var(--ember); }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; color: var(--muted); font-variant-numeric: tabular-nums; flex: 1; }
+.menu { display: flex; gap: 8px; }
+.clock { display: flex; flex-wrap: wrap; gap: 3px; list-style: none; margin: 0; padding: 0; }
+.clock li { width: 22px; height: 26px; border: 1px solid var(--line); border-radius: 4px; display: grid; place-items: center; font-size: .8rem; color: var(--muted); background: var(--panel); }
+.clock li.past { opacity: .35; }
+.clock li.now { border-color: var(--ember); color: var(--ink); font-weight: 800; box-shadow: 0 0 0 2px color-mix(in srgb, var(--ember) 35%, transparent); }
+
+/* main grid */
+#main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; align-items: start; }
+@media (max-width: 960px) { #main { grid-template-columns: minmax(0, 1fr); } }
+.lanes { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.lane { display: grid; gap: 10px; align-content: start; padding: 10px; border-radius: 10px; border: 1px dashed var(--line); min-width: 0; }
+.lane.mine { border-color: var(--ember); border-style: solid; }
+.lane-h { display: flex; justify-content: space-between; color: var(--muted); font-size: .85rem; letter-spacing: .06em; text-transform: uppercase; }
+.empty { padding: 18px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 8px; }
+.joined { margin: 0; font-size: .85rem; color: var(--muted); }
+
+/* unit cards */
+.ucard { background: var(--paper); color: var(--card-ink); border: 3px solid var(--hero); border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; box-shadow: 0 1px 0 rgba(0,0,0,.08), 0 6px 14px -10px rgba(0,0,0,.5); min-width: 0; }
+.ucard.villain { border-color: var(--villain); }
+.ucard header { display: flex; align-items: baseline; gap: 8px; }
+.ucard h3 { margin: 0; font: 700 1.25rem/1.1 var(--font-hand); flex: 1; min-width: 0; }
+.ucard .act { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--villain); border: 1px solid currentColor; border-radius: 3px; padding: 0 4px; }
+.ucard .hp { font-weight: 800; font-size: 1.15rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ucard .hp small { font-weight: 500; color: var(--card-muted); }
+.hpbar { height: 5px; background: color-mix(in srgb, var(--card-ink) 12%, transparent); border-radius: 3px; overflow: hidden; }
+.hpbar i { display: block; height: 100%; background: var(--good); transition: width .3s; }
+.slots { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.slot { display: grid; grid-template-columns: 26px 1fr auto; column-gap: 8px; align-items: center; padding: 3px 0; border-top: 1px solid color-mix(in srgb, var(--card-ink) 10%, transparent); }
+.slot .sym { width: 24px; height: 24px; border-radius: 5px; display: grid; place-items: center; font-weight: 800; color: #fff; }
+.slot.atk .sym { background: var(--atk); } .slot.def .sym { background: var(--def); } .slot.foc .sym { background: var(--foc); }
+.slot .mv { font-weight: 700; min-width: 0; }
+.slot .mv em { font-weight: 400; color: var(--card-muted); }
+.slot .pw { font-weight: 800; font-variant-numeric: tabular-nums; }
+.slot .tx { grid-column: 2 / -1; font-size: .82rem; color: var(--card-muted); line-height: 1.25; }
+.stack { font-size: .75rem; color: var(--hero); }
+.ability { margin: 0; font-size: .86rem; font-style: italic; line-height: 1.3; }
+.ucard footer { font-size: .75rem; color: var(--card-muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { font-size: .78rem; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); white-space: nowrap; }
+.ucard .chip { background: transparent; border-color: color-mix(in srgb, var(--card-ink) 25%, transparent); color: var(--card-ink); }
+
+/* battle strip */
+.strip { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; display: grid; gap: 6px; }
+.strip.scout .srow { display: flex; gap: 10px; align-items: center; }
+.slabel { font-size: .9rem; }
+.amb { color: var(--bad); }
+.field { display: flex; gap: 6px; align-items: start; min-width: 0; }
+.tension { font-size: .8rem; color: var(--muted); }
+.tension b { color: var(--ember); font-size: 1rem; }
+.who { display: grid; grid-template-rows: 48px 30px 48px; gap: 3px; padding-top: 5px; width: 82px; flex: none; font-size: .75rem; line-height: 1.15; color: var(--muted); }
+.who span { display: flex; align-items: center; }
+.who .wv { color: var(--villain); font-weight: 700; } .who .wh { color: var(--hero); font-weight: 700; }
+.who .wm { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; }
+.cols { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; min-width: 0; }
+.col { display: grid; justify-items: center; gap: 3px; padding: 4px; border-radius: 6px; border: 1px solid transparent; min-width: 52px; }
+.col.cur { border-color: var(--ember); background: color-mix(in srgb, var(--ember) 8%, transparent); }
+.col.next { border-color: var(--line); border-style: dashed; }
+.sn { font-size: .7rem; color: var(--muted); }
+.tile { width: 36px; height: 48px; border-radius: 5px; display: grid; place-items: center; font: 800 1.5rem/1 var(--font-ui); color: #fff; }
+.tile.atk { background: var(--atk); } .tile.def { background: var(--def); } .tile.foc { background: var(--foc); }
+.tile.back { background: repeating-linear-gradient(45deg, var(--back), var(--back) 4px, color-mix(in srgb, var(--back) 70%, var(--table)) 4px, color-mix(in srgb, var(--back) 70%, var(--table)) 8px); }
+.tile.stag { outline: 3px dashed var(--bad); outline-offset: -3px; opacity: .7; }
+.mid { display: grid; gap: 1px; min-height: 30px; align-content: center; text-align: center; }
+.dm { font-size: .75rem; font-variant-numeric: tabular-nums; color: var(--muted); }
+.dm.hit { color: var(--good); font-weight: 800; } .dm.hurt { color: var(--bad); font-weight: 800; }
+.dm.pv { font-style: italic; font-weight: 400; }
+.preview { margin: 0; font-size: .9rem; }
+.preview .hurt { color: var(--bad); } .preview .hit { color: var(--good); }
+.preview .note { color: var(--muted); font-style: italic; }
+.status { margin: 0; font-weight: 800; color: var(--ember); }
+
+/* side panel */
+#side { display: grid; gap: 14px; position: sticky; top: env(safe-area-inset-top, 0px); }
+@media (max-width: 960px) { #side { position: static; } }
+.phase { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 10px; }
+.phase h2 { margin: 0; font: 700 1.3rem/1.2 var(--font-hand); text-wrap: balance; }
+.lead { margin: 0; color: var(--muted); }
+.big { font-size: 1.4rem; color: var(--ink); }
+.muted { color: var(--muted); margin: 0; }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; }
+button { cursor: pointer; border: 1px solid var(--line); background: var(--table); border-radius: 7px; padding: 6px 10px; display: inline-grid; text-align: left; }
+button small { color: var(--muted); font-size: .75rem; }
+button:hover:not(:disabled) { border-color: var(--ember); }
+button:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.on { border-color: var(--ember); background: color-mix(in srgb, var(--ember) 15%, var(--panel)); }
+button.primary { background: var(--ember); border-color: var(--ember); color: #fff; font-weight: 800; padding: 9px 14px; text-align: center; }
+button.primary small { color: #ffe9dc; }
+button.ghost { background: transparent; }
+.dec { display: grid; gap: 4px; }
+.dec > span { font-size: .85rem; color: var(--muted); }
+.tag { font-size: .8rem; padding: 3px 8px; border-radius: 4px; font-weight: 700; }
+.tag.danger { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
+.reacts { display: grid; gap: 6px; }
+.logwrap { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.logwrap h3 { margin: 0 0 6px; font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+#log { list-style: none; margin: 0; padding: 0; max-height: 340px; overflow-y: auto; display: grid; gap: 3px; font-size: .85rem; }
+#log li { padding-left: 8px; border-left: 3px solid transparent; }
+#log .round { border-color: var(--ember); font-weight: 800; margin-top: 6px; }
+#log .act { border-color: var(--villain); font-weight: 800; }
+#log .danger { border-color: var(--bad); }
+#log .win { border-color: var(--good); font-weight: 700; }
+#log .heal { color: var(--good); }
+#log .villain { border-color: var(--villain); }
+#log .step { color: var(--muted); }
+
+/* trays + hand */
+#trays { display: grid; gap: 10px; }
+.tray { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 10px; }
+.tray.active { border-color: var(--ember); }
+.tray-h { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.tray-h h2 { margin: 0 6px 0 0; font: 700 1.15rem/1 var(--font-hand); }
+.stat { font-size: .85rem; color: var(--muted); }
+.chip.tac { border-color: var(--ember); } .chip.ally { border-color: var(--good); } .chip.res { border-color: var(--hero); }
+.hand { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.hcard { background: var(--paper); color: var(--card-ink); border: 2px solid var(--line); border-top: 6px solid var(--card-muted); border-radius: 8px; padding: 8px; display: grid; gap: 2px; align-content: start; text-align: left; min-height: 120px; }
+.hcard.atk { border-top-color: var(--atk); } .hcard.def { border-top-color: var(--def); } .hcard.foc { border-top-color: var(--foc); } .hcard.flex { border-top-color: var(--hero); }
+.hcard.k-tactic { border-top-color: var(--ember); border-style: dashed; border-top-style: solid; }
+.hcard.k-lesson { border-top-color: var(--hero); } .hcard.k-ally { border-top-color: var(--good); }
+.hk { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--card-muted); }
+.hn { font: 700 1.05rem/1.15 var(--font-hand); }
+.hp2 { font-weight: 800; }
+.ht { font-size: .78rem; color: var(--card-muted); line-height: 1.25; }
+
+/* pick screen */
+.pick { display: grid; gap: 10px; }
+.pick h2 { margin: 0; font: 700 1.5rem/1.2 var(--font-hand); }
+.pickrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.pickopt { display: grid; gap: 8px; align-content: start; }
+.pickopt.chosen .ucard { outline: 3px solid var(--ember); }
+
+/* setup + overlays */
+#setup { max-width: 640px; }
+#setup h1 { font: 700 2.4rem/1.05 var(--font-hand); margin: 0 0 6px; text-wrap: balance; }
+#setup p { color: var(--muted); max-width: 60ch; }
+#setupForm { display: grid; gap: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
+legend { font-weight: 800; margin-bottom: 4px; }
+.radios { display: flex; flex-wrap: wrap; gap: 8px; }
+.radios label { border: 1px solid var(--line); border-radius: 7px; padding: 6px 10px; cursor: pointer; display: flex; gap: 6px; align-items: center; }
+.radios label:has(input:checked) { border-color: var(--ember); background: color-mix(in srgb, var(--ember) 12%, var(--panel)); }
+input[type=text] { font: inherit; padding: 7px 9px; border-radius: 7px; border: 1px solid var(--line); background: var(--table); color: var(--ink); width: 100%; }
+.names { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+.names label { display: grid; gap: 4px; font-size: .85rem; color: var(--muted); }
+.overlay { position: fixed; inset: 0; background: color-mix(in srgb, #000 55%, transparent); display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); z-index: 20; }
+.sheet { background: var(--panel); color: var(--ink); border-radius: 12px; border: 1px solid var(--line); padding: 16px; width: min(560px, 100%); max-height: 88vh; overflow-y: auto; display: grid; gap: 12px; }
+.sheet h2 { margin: 0; font: 700 1.35rem/1.2 var(--font-hand); }
+.sheet p { margin: 0; }
+.mopts { display: grid; gap: 6px; }
+.opt { width: 100%; }
+.mopts.many { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.opt span { font-weight: 700; }
+.mcancel { justify-self: start; }
+.mini { background: var(--paper); color: var(--card-ink); border-radius: 8px; border-top: 6px solid var(--card-muted); padding: 8px 10px; display: grid; gap: 2px; }
+.mini.atk { border-top-color: var(--atk); } .mini.def { border-top-color: var(--def); } .mini.foc { border-top-color: var(--foc); } .mini.flex { border-top-color: var(--hero); }
+.mini-k { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--card-muted); }
+.mini-n { font: 700 1.2rem/1.1 var(--font-hand); } .mini-p { font-weight: 800; } .mini p { font-size: .9rem; }
+.rules { width: min(720px, 100%); }
+.rules h3 { margin: 6px 0 0; font-size: 1rem; }
+.rules ol, .rules ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.sym-i { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 4px; color: #fff; font-weight: 800; font-size: .85rem; }
+.sym-i.atk { background: var(--atk); } .sym-i.def { background: var(--def); } .sym-i.foc { background: var(--foc); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header id="top"></header>
+
+  <section id="setup" hidden>
+    <h1>Train your heroes. Then watch the battle unfold.</h1>
+    <p>A hot-seat prototype of the co-op step-battle game. Each battle deals random +, − and • steps to every fighter and resolves them side by side, using the moves your heroes trained. Villains, their moves and the villain deck are set up for you.</p>
+    <form id="setupForm">
+      <fieldset>
+        <legend>Players</legend>
+        <div class="radios">
+          <label><input type="radio" name="players" value="1" checked> Solo (two lanes)</label>
+          <label><input type="radio" name="players" value="2"> 2 players (take turns)</label>
+        </div>
+      </fieldset>
+      <div class="names">
+        <label for="p1">Player 1 name<input id="p1" name="p1" type="text" placeholder="Player 1" autocomplete="off"></label>
+        <label id="p2wrap" for="p2" hidden>Player 2 name<input id="p2" name="p2" type="text" placeholder="Player 2" autocomplete="off"></label>
+      </div>
+      <fieldset>
+        <legend>Difficulty (clock length)</legend>
+        <div class="radios">
+          <label><input type="radio" name="difficulty" value="easy"> Easy · 14 rounds</label>
+          <label><input type="radio" name="difficulty" value="normal" checked> Normal · 12</label>
+          <label><input type="radio" name="difficulty" value="hard"> Hard · 10</label>
+        </div>
+      </fieldset>
+      <div class="btns">
+        <button class="primary" type="submit">Start a new game</button>
+        <button type="button" id="resume" data-act="resume" hidden>Continue saved game</button>
+      </div>
+    </form>
+  </section>
+
+  <div id="main">
+    <div id="board"></div>
+    <aside id="side"></aside>
+  </div>
+  <div id="trays"></div>
+</div>
+
+<div id="modal" class="overlay" hidden></div>
+
+<div id="rules" class="overlay" hidden>
+  <div class="sheet rules" role="dialog" aria-modal="true" aria-labelledby="rtitle">
+    <h2 id="rtitle">How a round works</h2>
+    <ol>
+      <li><b>Draw.</b> Each player draws 2 cards (solo: 3).</li>
+      <li><b>Prepare.</b> Players take turns spending actions (2 each, solo 3): Train a move onto a hero slot, Teach a Lesson, Ready a Tactic, Call an Ally, Scavenge (draw 1), Recruit a reserve hero, Swap with reserve, or Share a card.</li>
+      <li><b>Scout.</b> Each villain's first step is flipped face up from the villain step deck. A <span class="sym-i atk">+</span> is an ambush, and that lane must fight.</li>
+      <li><b>Fight or hold.</b> Holding heals your hero 1 and draws a card, but the clock still moves.</li>
+      <li><b>Battle.</b> Battle length comes from the clock. Each step, both sides flip a step card and use the move in that slot. Villains draw from their own step deck, which has more + cards. Damage = attacker's + minus defender's −. Both sides hit at once.</li>
+      <li><b>Aftermath.</b> Spoils for defeated villains, replacements for fallen heroes, new villains arrive, and the clock advances.</li>
+    </ol>
+    <h3>Steps</h3>
+    <ul>
+      <li><span class="sym-i atk">+</span> Attack, <span class="sym-i def">−</span> Defend, <span class="sym-i foc">•</span> Focus. An empty slot does nothing.</li>
+      <li>Training a move covers the old one. Covered moves still count as training.</li>
+      <li>After each reveal you can react: spend readied Tactics, Courage (redraw your step) or once-per-battle abilities. The preview shows the damage before you resolve.</li>
+    </ul>
+    <h3>Winning</h3>
+    <ul>
+      <li>Defeat every villain, then the Warlord (who fights every lane at once) before the clock runs out.</li>
+      <li>Act II villains bring harder villain moves into the decks.</li>
+    </ul>
+    <button class="primary" data-act="closerules">Back to the game</button>
+  </div>
+</div>
+
+<script src="cards.js"></script>
+<script src="game.js"></script>
